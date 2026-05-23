@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>植物猜猜猜</title>
+<style>
+  :root {
+    --green: #2E7D32;
+    --green-light: #4CAF50;
+    --green-bg: #E8F5E9;
+    --red: #E53935;
+    --red-light: #FFEBEE;
+    --gold: #FF8F00;
+    --white: #FFFFFF;
+    --gray: #9E9E9E;
+    --text: #263238;
+    --text-light: #607D8B;
+    --radius: 16px;
+    --shadow: 0 2px 16px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(170deg, #E8F5E9 0%, #C8E6C9 30%, #A5D6A7 60%, #81C784 100%);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 420px;
+    background: var(--white);
+    border-radius: 24px;
+    box-shadow: 0 8px 40px rgba(46,125,50,0.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 90vh;
+    min-height: 90dvh;
+    max-height: 95vh;
+    max-height: 95dvh;
+  }
+
+  /* ===== 顶部栏 ===== */
+  .header {
+    background: linear-gradient(135deg, #1B5E20, #2E7D32);
+    color: white;
+    padding: 16px 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .header h1 span { font-size: 26px; }
+
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .stat-item {
+    background: rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 4px 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stat-value {
+    font-weight: 700;
+    font-size: 18px;
+    color: #FFD54F;
+  }
+
+  /* ===== 图片区域 ===== */
+  .image-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: #FAFAFA;
+    position: relative;
+    min-height: 200px;
+    overflow: hidden;
+  }
+
+  .image-area img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .image-area img.loading {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  .image-area img.loaded {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .image-placeholder {
+    color: var(--gray);
+    font-size: 15px;
+    text-align: center;
+  }
+  .image-placeholder .icon { font-size: 64px; display: block; margin-bottom: 8px; }
+
+  /* ===== 结果提示 ===== */
+  .result-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    padding: 16px 28px;
+    border-radius: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    z-index: 10;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+    text-align: center;
+  }
+  .result-banner.show { transform: translate(-50%, -50%) scale(1); }
+  .result-banner.correct { background: #E8F5E9; color: #2E7D32; border: 3px solid #4CAF50; }
+  .result-banner.wrong { background: #FFEBEE; color: #C62828; border: 3px solid #E53935; }
+
+  /* ===== 选项区域 ===== */
+  .options-area {
+    padding: 16px;
+    flex-shrink: 0;
+    background: var(--white);
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .option-btn {
+    position: relative;
+    padding: 16px 8px;
+    font-size: 17px;
+    font-weight: 600;
+    border: 2px solid #E0E0E0;
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    word-break: break-all;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+  .option-btn:active:not(.disabled) {
+    transform: scale(0.96);
+    background: #F5F5F5;
+  }
+  .option-btn.disabled {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .option-btn.correct-answer {
+    border-color: #4CAF50 !important;
+    background: #E8F5E9 !important;
+    color: #2E7D32 !important;
+    opacity: 1 !important;
+    animation: pulse-green 0.6s ease;
+  }
+  .option-btn.wrong-answer {
+    border-color: #E53935 !important;
+    background: #FFEBEE !important;
+    color: #C62828 !important;
+    opacity: 1 !important;
+    animation: shake 0.5s ease;
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* ===== 下一题按钮 ===== */
+  .next-area {
+    padding: 0 16px 20px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .next-btn {
+    display: none;
+    padding: 14px 48px;
+    font-size: 17px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #43A047, #2E7D32);
+    border: none;
+    border-radius: 28px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(46,125,50,0.3);
+  }
+  .next-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(46,125,50,0.2);
+  }
+  .next-btn.show { display: block; }
+
+  /* ===== 加载/错误状态 ===== */
+  .error-state {
+    display: none;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-light);
+  }
+  .error-state.show { display: block; }
+  .error-state .icon { font-size: 56px; display: block; margin-bottom: 12px; }
+
+  /* ===== 完成面板 ===== */
+  .finish-panel {
+    display: none;
+    text-align: center;
+    padding: 24px;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+  .finish-panel.show { display: flex; }
+  .finish-panel .icon { font-size: 72px; margin-bottom: 12px; }
+  .finish-panel h2 { font-size: 22px; color: var(--green); margin-bottom: 8px; }
+  .finish-panel .score-final { font-size: 48px; font-weight: 800; color: var(--gold); }
+  .finish-panel p { color: var(--text-light); margin: 8px 0 20px; }
+  .restart-btn {
+    padding: 14px 40px;
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #43A047, #2E7D32);
+    border: none;
+    border-radius: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(46,125,50,0.3);
+  }
+
+  /* ===== 响应式微调 ===== */
+  @media (min-width: 500px) {
+    .options-grid { gap: 14px; }
+    .option-btn { font-size: 18px; padding: 18px 10px; min-height: 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <!-- 顶部 -->
+  <div class="header">
+    <h1><span>🌿</span> 植物猜猜猜</h1>
+    <div class="stats">
+      <div class="stat-item">⭐ <span class="stat-value" id="score">0</span> 分</div>
+      <div class="stat-item">📷 <span id="progress">1</span>/<span id="total">0</span></div>
+    </div>
+  </div>
+
+  <!-- 图片区 -->
+  <div class="image-area" id="imageArea">
+    <div class="image-placeholder" id="placeholder">
+      <span class="icon">🌱</span>点击下方选项开始游戏
+    </div>
+    <img id="plantImage" src="" alt="植物图片" class="loading" style="display:none">
+    <div class="result-banner" id="resultBanner"></div>
+  </div>
+
+  <!-- 选项区 -->
+  <div class="options-area" id="optionsArea">
+    <div class="options-grid" id="optionsGrid">
+      <button class="option-btn" data-index="0"></button>
+      <button class="option-btn" data-index="1"></button>
+      <button class="option-btn" data-index="2"></button>
+      <button class="option-btn" data-index="3"></button>
+    </div>
+  </div>
+
+  <!-- 下一题 -->
+  <div class="next-area">
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">下一题 ➜</button>
+  </div>
+
+  <!-- 完成面板 -->
+  <div class="finish-panel" id="finishPanel">
+    <span class="icon">🎉</span>
+    <h2>全部答完！</h2>
+    <div class="score-final" id="finalScore">0</div>
+    <p>总分</p>
+    <button class="restart-btn" onclick="restartGame()">🔄 再玩一次</button>
+  </div>
+
+  <!-- 错误提示 -->
+  <div class="error-state" id="errorState">
+    <span class="icon">😢</span>
+    <p>无法加载植物数据，<br>请确保 plant_data.js 文件存在</p>
+  </div>
+</div>
+
+<script src="plant_data.js"></script>
+<script>
+// ==================== 游戏逻辑 ====================
+(function() {
+  var plants = [];
+  var usedImages = {};    // 记录已用图片: { "img/xxx/1.webp": true }
+  var currentPlant = null;
+  var currentImage = null;
+  var score = 0;
+  var questionCount = 0;
+  var totalImages = 0;
+  var answered = false;
+
+  // DOM 引用
+  var els = {};
+  function $(id) { return document.getElementById(id); }
+
+  // 初始化 DOM 引用
+  function initDom() {
+    els.imageArea = $('imageArea');
+    els.plantImage = $('plantImage');
+    els.placeholder = $('placeholder');
+    els.resultBanner = $('resultBanner');
+    els.optionsGrid = $('optionsGrid');
+    els.nextBtn = $('nextBtn');
+    els.score = $('score');
+    els.progress = $('progress');
+    els.total = $('total');
+    els.finishPanel = $('finishPanel');
+    els.finalScore = $('finalScore');
+    els.errorState = $('errorState');
+    els.app = $('app');
+    els.optionsArea = $('optionsArea');
+  }
+
+  // 加载数据
+  function loadData() {
+    if (typeof PLANT_DATA === 'undefined') {
+      els.errorState.classList.add('show');
+      els.placeholder.style.display = 'none';
+      return false;
+    }
+
+    plants = PLANT_DATA;
+    // 过滤掉没有图片的植物
+    plants = plants.filter(function(p) { return p.images && p.images.length > 0; });
+
+    // 计算总图片数
+    totalImages = 0;
+    plants.forEach(function(p) {
+      totalImages += p.images.length;
+    });
+
+    if (plants.length < 4) {
+      els.errorState.classList.add('show');
+      els.placeholder.style.display = 'none';
+      return false;
+    }
+
+    els.total.textContent = totalImages;
+    return true;
+  }
+
+  // 随机选植物
+  function pickRandomPlant() {
+    // 过滤掉所有图片都已用过的植物
+    var available = plants.filter(function(p) {
+      return p.images.some(function(img) { return !usedImages[img]; });
+    });
+
+    if (available.length === 0) return null;
+
+    var idx = Math.floor(Math.random() * available.length);
+    return available[idx];
+  }
+
+  // 从指定植物中选未用过的图片
+  function pickImage(plant) {
+    var fresh = plant.images.filter(function(img) { return !usedImages[img]; });
+    if (fresh.length === 0) return null;
+    var idx = Math.floor(Math.random() * fresh.length);
+    return fresh[idx];
+  }
+
+  // 生成 4 个选项（含正确答案）
+  function generateOptions(correctName) {
+    var others = plants.filter(function(p) { return p.name !== correctName; });
+    // 随机选 3 个
+    shuffle(others);
+    var distractors = others.slice(0, 3).map(function(p) { return p.name; });
+    var options = [correctName].concat(distractors);
+    shuffle(options);
+    return options;
+  }
+
+  // Fisher-Yates 洗牌
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+  }
+
+  // 准备题目
+  function prepareQuestion() {
+    var plant = pickRandomPlant();
+    if (!plant) {
+      showFinish();
+      return;
+    }
+
+    var image = pickImage(plant);
+    if (!image) {
+      // 理论上不会到这，但防御一下
+      showFinish();
+      return;
+    }
+
+    currentPlant = plant;
+    currentImage = image;
+
+    var options = generateOptions(plant.name);
+
+    // 更新 UI
+    answered = false;
+    els.nextBtn.classList.remove('show');
+    els.resultBanner.classList.remove('show', 'correct', 'wrong');
+    els.placeholder.style.display = 'none';
+
+    // 加载图片
+    els.plantImage.style.display = 'block';
+    els.plantImage.classList.remove('loaded');
+    els.plantImage.classList.add('loading');
+    els.plantImage.src = currentImage;
+    els.plantImage.onload = function() {
+      els.plantImage.classList.remove('loading');
+      els.plantImage.classList.add('loaded');
+    };
+    els.plantImage.onerror = function() {
+      els.plantImage.style.display = 'none';
+      els.placeholder.innerHTML = '<span class="icon">🖼️</span>图片加载失败';
+      els.placeholder.style.display = 'block';
+    };
+
+    // 渲染选项
+    var buttons = els.optionsGrid.querySelectorAll('.option-btn');
+    buttons.forEach(function(btn, i) {
+      btn.textContent = options[i];
+      btn.className = 'option-btn';
+      btn.setAttribute('data-answer', options[i]);
+      btn.onclick = function() { handleAnswer(options[i], btn); };
+    });
+
+    questionCount++;
+    els.progress.textContent = questionCount;
+    els.total.textContent = totalImages;
+  }
+
+  // 处理用户回答
+  function handleAnswer(selected, btn) {
+    if (answered) return;
+    answered = true;
+
+    var correctName = currentPlant.name;
+    var isCorrect = (selected === correctName);
+
+    // 标记使用过的图片
+    usedImages[currentImage] = true;
+
+    // 禁用所有按钮
+    var buttons = els.optionsGrid.querySelectorAll('.option-btn');
+    buttons.forEach(function(b) { b.classList.add('disabled'); });
+
+    // 高亮正确答案
+    buttons.forEach(function(b) {
+      if (b.getAttribute('data-answer') === correctName) {
+        b.classList.add('correct-answer');
+      }
+    });
+
+    // 如果选错，高亮错误选项
+    if (!isCorrect) {
+      btn.classList.add('wrong-answer');
+    } else {
+      score++;
+      els.score.textContent = score;
+    }
+
+    // 显示结果横幅
+    var banner = els.resultBanner;
+    if (isCorrect) {
+      banner.textContent = '✅ 回答正确！';
+      banner.className = 'result-banner correct show';
+    } else {
+      banner.textContent = '❌ 正确答案：' + correctName;
+      banner.className = 'result-banner wrong show';
+    }
+
+    // 显示下一题按钮
+    els.nextBtn.classList.add('show');
+    els.nextBtn.focus();
+  }
+
+  // 下一题
+  window.nextQuestion = function() {
+    // 检查是否全部答完
+    var available = plants.filter(function(p) {
+      return p.images.some(function(img) { return !usedImages[img]; });
+    });
+    if (available.length === 0 || questionCount >= totalImages) {
+      showFinish();
+      return;
+    }
+    prepareQuestion();
+  };
+
+  // 显示完成面板
+  function showFinish() {
+    els.plantImage.style.display = 'none';
+    els.placeholder.style.display = 'none';
+    els.optionsArea.style.display = 'none';
+    els.nextBtn.classList.remove('show');
+    els.resultBanner.classList.remove('show');
+    els.finalScore.textContent = score;
+    els.finishPanel.classList.add('show');
+    els.progress.textContent = questionCount;
+  }
+
+  // 重新开始
+  window.restartGame = function() {
+    usedImages = {};
+    currentPlant = null;
+    currentImage = null;
+    score = 0;
+    questionCount = 0;
+    answered = false;
+
+    els.score.textContent = '0';
+    els.progress.textContent = '1';
+    els.plantImage.style.display = 'none';
+    els.placeholder.style.display = 'block';
+    els.placeholder.innerHTML = '<span class="icon">🌱</span>点击下方选项开始游戏';
+    els.finishPanel.classList.remove('show');
+    els.optionsArea.style.display = 'block';
+    els.resultBanner.classList.remove('show', 'correct', 'wrong');
+    els.nextBtn.classList.remove('show');
+
+    // 重置按钮
+    var buttons = els.optionsGrid.querySelectorAll('.option-btn');
+    buttons.forEach(function(btn) {
+      btn.className = 'option-btn';
+      btn.textContent = '';
+    });
+
+    prepareQuestion();
+  };
+
+  // ===== 启动 =====
+  initDom();
+  if (loadData()) {
+    prepareQuestion();
+  }
+})();
+</script>
+
+</body>
+</html>
